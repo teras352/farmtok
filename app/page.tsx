@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { collection, getDocs, doc, setDoc, getDoc } from "firebase/firestore";
 import { db, auth } from "./lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import VideoCard from "./components/VideoCard";
 
 export default function Home() {
+  const router = useRouter();
+
   const [videos, setVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
@@ -15,7 +18,6 @@ export default function Home() {
   // 🔥 AUTH + ROLE CHECK
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      console.log("AUTH USER:", u);
       setUser(u);
 
       if (u) {
@@ -32,6 +34,8 @@ export default function Home() {
         } catch (error) {
           console.error("ROLE ERROR:", error);
         }
+      } else {
+        setIsSeller(false);
       }
     });
 
@@ -42,6 +46,7 @@ export default function Home() {
   const becomeSeller = async () => {
     if (!user) {
       alert("Κάνε login πρώτα");
+      router.push("/login");
       return;
     }
 
@@ -56,8 +61,7 @@ export default function Home() {
         { merge: true }
       );
 
-      setIsSeller(true); // 🔥 instant UI update
-
+      setIsSeller(true);
       alert("Τώρα μπορείς να πουλάς 🚀");
     } catch (error) {
       console.error("SELLER ERROR:", error);
@@ -114,6 +118,35 @@ export default function Home() {
         background: "black"
       }}
     >
+
+      {/* 🔐 LOGIN BUTTON (TOP LEFT) */}
+      {!user && (
+        <div
+          style={{
+            position: "fixed",
+            top: 15,
+            left: 15,
+            zIndex: 9999
+          }}
+        >
+          <button
+            onClick={() => router.push("/login")}
+            style={{
+              background: "rgba(0,0,0,0.6)",
+              color: "white",
+              border: "1px solid #333",
+              padding: "6px 12px",
+              borderRadius: 8,
+              fontSize: 12,
+              backdropFilter: "blur(5px)",
+              cursor: "pointer"
+            }}
+          >
+            🔐 Είσοδος
+          </button>
+        </div>
+      )}
+
       {/* 🔝 TOP BAR */}
       <div
         style={{
@@ -133,8 +166,8 @@ export default function Home() {
         FarmTok 🌱
       </div>
 
-      {/* 🔥 BUTTON (ONLY IF NOT SELLER) */}
-      {!isSeller && (
+      {/* 🧑‍🌾 SELLER BUTTON */}
+      {user && !isSeller && (
         <button
           onClick={becomeSeller}
           style={{
