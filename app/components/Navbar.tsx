@@ -3,23 +3,42 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { db, auth } from "../lib/firebase";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, getDoc } from "firebase/firestore";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 
 export default function Navbar() {
   const router = useRouter();
+
   const [count, setCount] = useState(0);
   const [user, setUser] = useState<any>(null);
+  const [role, setRole] = useState<string | null>(null);
 
-  // 🔥 current user
+  // 🔐 AUTH
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((u) => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
     });
 
     return () => unsubscribe();
   }, []);
 
-  // 🔴 REAL-TIME unread notifications
+  // 👤 FETCH ROLE
+  useEffect(() => {
+    if (!user) return;
+
+    const getRole = async () => {
+      const ref = doc(db, "users", user.uid);
+      const snap = await getDoc(ref);
+
+      if (snap.exists()) {
+        setRole(snap.data().role);
+      }
+    };
+
+    getRole();
+  }, [user]);
+
+  // 🔔 NOTIFICATIONS
   useEffect(() => {
     if (!user) return;
 
@@ -36,25 +55,39 @@ export default function Navbar() {
     return () => unsubscribe();
   }, [user]);
 
+  // 🚪 LOGOUT
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push("/login");
+  };
+
   return (
     <div
       style={{
         position: "fixed",
         bottom: 0,
         width: "100%",
-        height: 60,
+        height: "calc(60px + env(safe-area-inset-bottom))",
+        paddingBottom: "env(safe-area-inset-bottom)",
         background: "black",
         display: "flex",
         justifyContent: "space-around",
         alignItems: "center",
         borderTop: "1px solid #333",
-        zIndex: 100
+        zIndex: 1000
       }}
     >
+      {/* 🏠 HOME */}
       <button onClick={() => router.push("/")}>🏠</button>
 
-      <button onClick={() => router.push("/upload")}>➕</button>
+      {/* ➕ ONLY SELLER */}
+      {role === "seller" && (
+        <button onClick={() => router.push("/upload")}>
+          ➕
+        </button>
+      )}
 
+      {/* 📦 ORDERS */}
       <button onClick={() => router.push("/orders")}>📦</button>
 
       {/* 🔔 NOTIFICATIONS */}
@@ -74,7 +107,7 @@ export default function Navbar() {
               color: "white",
               borderRadius: "50%",
               padding: "2px 6px",
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: "bold"
             }}
           >
@@ -82,6 +115,13 @@ export default function Navbar() {
           </span>
         )}
       </div>
+
+      {/* 🔐 LOGIN / LOGOUT */}
+      {!user ? (
+        <button onClick={() => router.push("/login")}>🔐</button>
+      ) : (
+        <button onClick={handleLogout}>🚪</button>
+      )}
     </div>
   );
 }
