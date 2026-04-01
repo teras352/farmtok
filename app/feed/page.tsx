@@ -1,0 +1,67 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "../lib/firebase";
+import VideoCard from "../components/VideoCard";
+
+export default function FeedPage() {
+  const [videos, setVideos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, "products"));
+
+        const data = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        setVideos(data);
+      } catch (error) {
+        console.error("FETCH ERROR:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // 🔄 loading screen
+  if (loading) {
+    return (
+      <div style={{ color: "white", textAlign: "center", marginTop: 50 }}>
+        Loading...
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        height: "100vh",
+        overflowY: "scroll",
+        scrollSnapType: "y mandatory",
+        WebkitOverflowScrolling: "touch",
+        scrollBehavior: "smooth",
+        display: "flex",
+        flexDirection: "column"
+      }}
+    >
+      {videos.map((item) => (
+        <div
+          key={item.id}
+          style={{
+            scrollSnapAlign: "start",
+            scrollSnapStop: "always" // 🔥 πιο TikTok feeling
+          }}
+        >
+          <VideoCard video={item.video} product={item} />
+        </div>
+      ))}
+    </div>
+  );
+}
