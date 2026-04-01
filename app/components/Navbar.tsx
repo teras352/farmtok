@@ -3,7 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { db, auth } from "../lib/firebase";
-import { collection, query, where, onSnapshot, doc, getDoc } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  doc,
+  getDoc
+} from "firebase/firestore";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 
 export default function Navbar() {
@@ -12,6 +19,7 @@ export default function Navbar() {
   const [count, setCount] = useState(0);
   const [user, setUser] = useState<any>(null);
   const [role, setRole] = useState<string | null>(null);
+  const [loadingRole, setLoadingRole] = useState(true);
 
   // 🔐 AUTH
   useEffect(() => {
@@ -22,23 +30,36 @@ export default function Navbar() {
     return () => unsubscribe();
   }, []);
 
-  // 👤 FETCH ROLE
+  // 👤 FETCH ROLE (SAFE)
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setRole(null);
+      setLoadingRole(false);
+      return;
+    }
 
     const getRole = async () => {
-      const ref = doc(db, "users", user.uid);
-      const snap = await getDoc(ref);
+      try {
+        const ref = doc(db, "users", user.uid);
+        const snap = await getDoc(ref);
 
-      if (snap.exists()) {
-        setRole(snap.data().role);
+        if (snap.exists()) {
+          const data = snap.data();
+          setRole(data.role || null);
+        } else {
+          setRole(null);
+        }
+      } catch (error) {
+        console.error("ROLE ERROR:", error);
+      } finally {
+        setLoadingRole(false);
       }
     };
 
     getRole();
   }, [user]);
 
-  // 🔔 NOTIFICATIONS
+  // 🔔 NOTIFICATIONS (REALTIME)
   useEffect(() => {
     if (!user) return;
 
@@ -57,8 +78,12 @@ export default function Navbar() {
 
   // 🚪 LOGOUT
   const handleLogout = async () => {
-    await signOut(auth);
-    router.push("/login");
+    try {
+      await signOut(auth);
+      router.push("/login");
+    } catch (error) {
+      console.error("LOGOUT ERROR:", error);
+    }
   };
 
   return (
@@ -80,8 +105,8 @@ export default function Navbar() {
       {/* 🏠 HOME */}
       <button onClick={() => router.push("/")}>🏠</button>
 
-      {/* ➕ ONLY SELLER */}
-      {role === "seller" && (
+      {/* ➕ ONLY SELLER (AFTER LOAD) */}
+      {!loadingRole && role === "seller" && (
         <button onClick={() => router.push("/upload")}>
           ➕
         </button>
