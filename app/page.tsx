@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, doc, setDoc } from "firebase/firestore";
+import { collection, getDocs, doc, setDoc, getDoc } from "firebase/firestore";
 import { db, auth } from "./lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import VideoCard from "./components/VideoCard";
@@ -10,18 +10,35 @@ export default function Home() {
   const [videos, setVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
+  const [isSeller, setIsSeller] = useState(false);
 
-  // 🔥 AUTH LISTENER
+  // 🔥 AUTH + ROLE CHECK
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
       console.log("AUTH USER:", u);
       setUser(u);
+
+      if (u) {
+        try {
+          const userRef = doc(db, "users", u.uid);
+          const userSnap = await getDoc(userRef);
+
+          if (userSnap.exists()) {
+            const data = userSnap.data();
+            if (data.role === "seller") {
+              setIsSeller(true);
+            }
+          }
+        } catch (error) {
+          console.error("ROLE ERROR:", error);
+        }
+      }
     });
 
     return () => unsubscribe();
   }, []);
 
-  // 🔥 ΓΙΝΕ ΠΑΡΑΓΩΓΟΣ (FIXED)
+  // 🔥 ΓΙΝΕ SELLER
   const becomeSeller = async () => {
     if (!user) {
       alert("Κάνε login πρώτα");
@@ -29,20 +46,21 @@ export default function Home() {
     }
 
     try {
-      console.log("UID:", user.uid);
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          role: "seller",
+          email: user.email,
+          updatedAt: new Date()
+        },
+        { merge: true }
+      );
 
-      // 🔥 ΔΥΝΑΤΟ WRITE (overwrite για test)
-      await setDoc(doc(db, "users", user.uid), {
-        role: "seller",
-        updatedAt: new Date(),
-        email: user.email
-      });
+      setIsSeller(true); // 🔥 instant UI update
 
-      console.log("✅ UPDATED TO SELLER");
-
-      alert("Έγινες παραγωγός!");
+      alert("Τώρα μπορείς να πουλάς 🚀");
     } catch (error) {
-      console.error("❌ ERROR:", error);
+      console.error("SELLER ERROR:", error);
       alert("Σφάλμα");
     }
   };
@@ -69,6 +87,7 @@ export default function Home() {
     fetchData();
   }, []);
 
+  // 🔄 LOADING
   if (loading) {
     return (
       <div style={{
@@ -114,26 +133,28 @@ export default function Home() {
         FarmTok 🌱
       </div>
 
-      {/* 🔥 BUTTON */}
-      <button
-        onClick={becomeSeller}
-        style={{
-          position: "fixed",
-          top: 60,
-          right: 10,
-          zIndex: 9999,
-          padding: "8px 12px",
-          background: "#22c55e",
-          color: "white",
-          border: "none",
-          borderRadius: 8,
-          fontSize: 12,
-          fontWeight: "bold",
-          cursor: "pointer"
-        }}
-      >
-        Γίνε παραγωγός
-      </button>
+      {/* 🔥 BUTTON (ONLY IF NOT SELLER) */}
+      {!isSeller && (
+        <button
+          onClick={becomeSeller}
+          style={{
+            position: "fixed",
+            top: 60,
+            right: 10,
+            zIndex: 9999,
+            padding: "8px 12px",
+            background: "#22c55e",
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            fontSize: 12,
+            fontWeight: "bold",
+            cursor: "pointer"
+          }}
+        >
+          Ξεκίνα να πουλάς 🚀
+        </button>
+      )}
 
       {/* 🎥 FEED */}
       {videos.map((item) => (
