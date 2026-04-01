@@ -30,10 +30,16 @@ export default function FeedPage() {
     fetchData();
   }, []);
 
-  // 🔄 loading screen
   if (loading) {
     return (
-      <div style={{ color: "white", textAlign: "center", marginTop: 50 }}>
+      <div style={{
+        height: "100dvh",
+        background: "black",
+        color: "white",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center"
+      }}>
         Loading...
       </div>
     );
@@ -42,21 +48,23 @@ export default function FeedPage() {
   return (
     <div
       style={{
-        height: "100vh",
+        height: "100dvh", // 🔥 FIX
         overflowY: "scroll",
         scrollSnapType: "y mandatory",
         WebkitOverflowScrolling: "touch",
         scrollBehavior: "smooth",
         display: "flex",
-        flexDirection: "column"
+        flexDirection: "column",
+        background: "black"
       }}
     >
       {videos.map((item) => (
         <div
           key={item.id}
           style={{
+            height: "100dvh", // 🔥 κάθε video full screen
             scrollSnapAlign: "start",
-            scrollSnapStop: "always" // 🔥 πιο TikTok feeling
+            scrollSnapStop: "always"
           }}
         >
           <VideoCard video={item.video} product={item} />

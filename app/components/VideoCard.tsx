@@ -28,7 +28,7 @@ export default function VideoCard({ video, product }: Props) {
     setLikes(liked ? likes - 1 : likes + 1);
   };
 
-  // 🎥 AUTO PLAY / PAUSE
+  // 🎥 AUTO PLAY / PAUSE (TikTok style)
   useEffect(() => {
     const videoEl = videoRef.current;
     if (!videoEl) return;
@@ -54,7 +54,7 @@ export default function VideoCard({ video, product }: Props) {
   return (
     <div
       style={{
-        height: "100vh",
+        height: "100dvh", // 🔥 FIX MOBILE
         position: "relative",
         overflow: "hidden",
         background: "black",
@@ -73,7 +73,7 @@ export default function VideoCard({ video, product }: Props) {
           width: "100%",
           height: "100%",
           objectFit: "cover",
-          pointerEvents: "none" // 🔥 SUPER IMPORTANT FIX
+          pointerEvents: "none" // 🔥 important για scroll
         }}
       />
 
@@ -89,11 +89,11 @@ export default function VideoCard({ video, product }: Props) {
         }}
       />
 
-      {/* 📦 PRODUCT INFO BOX */}
+      {/* 📦 PRODUCT INFO */}
       <div
         style={{
           position: "absolute",
-          bottom: "calc(70px + env(safe-area-inset-bottom))",
+          bottom: "calc(60px + env(safe-area-inset-bottom))",
           left: 15,
           background: "rgba(0,0,0,0.6)",
           padding: "8px 10px",
@@ -118,6 +118,7 @@ export default function VideoCard({ video, product }: Props) {
               return;
             }
 
+            // 🚫 μην αγοράζεις δικό σου προϊόν
             if (product.userId === auth.currentUser.uid) {
               alert("Δεν μπορείς να αγοράσεις το δικό σου προϊόν");
               return;
@@ -161,21 +162,21 @@ export default function VideoCard({ video, product }: Props) {
         style={{
           position: "absolute",
           right: 10,
-          bottom: "calc(120px + env(safe-area-inset-bottom))",
+          bottom: "calc(110px + env(safe-area-inset-bottom))",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          gap: 25,
+          gap: 20,
           zIndex: 5
         }}
       >
         <div onClick={handleLike} style={{ cursor: "pointer" }}>
-          <FaHeart size={28} color={liked ? "red" : "white"} />
-          <div>{likes}</div>
+          <FaHeart size={26} color={liked ? "red" : "white"} />
+          <div style={{ fontSize: 12 }}>{likes}</div>
         </div>
 
-        <FaCommentDots size={28} />
-        <FaShare size={28} />
+        <FaCommentDots size={26} />
+        <FaShare size={26} />
       </div>
     </div>
   );
