@@ -30,7 +30,7 @@ export default function Navbar() {
     return () => unsubscribe();
   }, []);
 
-  // 👤 FETCH ROLE (SAFE)
+  // 👤 FETCH ROLE
   useEffect(() => {
     if (!user) {
       setRole(null);
@@ -59,7 +59,7 @@ export default function Navbar() {
     getRole();
   }, [user]);
 
-  // 🔔 NOTIFICATIONS (REALTIME)
+  // 🔔 NOTIFICATIONS
   useEffect(() => {
     if (!user) return;
 
@@ -105,7 +105,7 @@ export default function Navbar() {
       {/* 🏠 HOME */}
       <button onClick={() => router.push("/")}>🏠</button>
 
-      {/* ➕ ONLY SELLER (AFTER LOAD) */}
+      {/* ➕ ONLY SELLER */}
       {!loadingRole && role === "seller" && (
         <button onClick={() => router.push("/upload")}>
           ➕
@@ -140,6 +140,11 @@ export default function Navbar() {
           </span>
         )}
       </div>
+
+      {/* 👤 PROFILE */}
+      <button onClick={() => router.push("/profile")}>
+        👤
+      </button>
 
       {/* 🔐 LOGIN / LOGOUT */}
       {!user ? (
