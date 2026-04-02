@@ -9,6 +9,8 @@ import { useRouter } from "next/navigation";
 export default function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
   const router = useRouter();
 
   const handleSignup = async () => {
@@ -18,6 +20,8 @@ export default function Signup() {
     }
 
     try {
+      setLoading(true);
+
       // 🔐 Δημιουργία χρήστη
       const userCredential = await createUserWithEmailAndPassword(
         auth,
@@ -29,17 +33,16 @@ export default function Signup() {
 
       console.log("NEW USER:", user.uid);
 
-      // 🔥 Αποθήκευση στο Firestore (role system)
+      // 🔥 Αποθήκευση στο Firestore (NEW SYSTEM)
       await setDoc(doc(db, "users", user.uid), {
         email: user.email,
-        role: "buyer", // default
+        isSeller: false, // ✅ NEW SYSTEM
         createdAt: new Date()
       });
 
       alert("Έγινε εγγραφή!");
 
-      // 🔥 redirect στο feed
-      router.push("/");
+      router.push("/"); // 🔥 redirect
 
     } catch (error: any) {
       console.error("SIGNUP ERROR:", error);
@@ -51,6 +54,8 @@ export default function Signup() {
       } else {
         alert("Σφάλμα εγγραφής");
       }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -63,20 +68,22 @@ export default function Signup() {
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
-        alignItems: "center"
+        alignItems: "center",
+        padding: 20
       }}
     >
-      <h1>Signup</h1>
+      <h1 style={{ marginBottom: 20 }}>Εγγραφή</h1>
 
       <input
         placeholder="Email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         style={{
-          padding: 10,
-          marginBottom: 10,
-          borderRadius: 8,
-          border: "none"
+          padding: 12,
+          marginBottom: 12,
+          borderRadius: 10,
+          border: "none",
+          width: "250px"
         }}
       />
 
@@ -86,26 +93,29 @@ export default function Signup() {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         style={{
-          padding: 10,
+          padding: 12,
           marginBottom: 20,
-          borderRadius: 8,
-          border: "none"
+          borderRadius: 10,
+          border: "none",
+          width: "250px"
         }}
       />
 
       <button
         onClick={handleSignup}
+        disabled={loading}
         style={{
-          padding: "10px 20px",
-          background: "#22c55e",
+          padding: "12px 20px",
+          background: loading ? "#555" : "#22c55e",
           border: "none",
-          borderRadius: 8,
+          borderRadius: 10,
           color: "white",
           fontWeight: "bold",
-          cursor: "pointer"
+          cursor: "pointer",
+          width: "250px"
         }}
       >
-        Εγγραφή
+        {loading ? "Δημιουργία..." : "Εγγραφή"}
       </button>
     </div>
   );
