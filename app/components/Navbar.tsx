@@ -9,7 +9,8 @@ import {
   where,
   onSnapshot,
   doc,
-  getDoc
+  getDoc,
+  setDoc
 } from "firebase/firestore";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 
@@ -18,7 +19,7 @@ export default function Navbar() {
 
   const [count, setCount] = useState(0);
   const [user, setUser] = useState<any>(null);
-  const [role, setRole] = useState<string | null>(null);
+  const [isSeller, setIsSeller] = useState(false);
   const [loadingRole, setLoadingRole] = useState(true);
 
   // 🔐 AUTH
@@ -30,10 +31,10 @@ export default function Navbar() {
     return () => unsubscribe();
   }, []);
 
-  // 👤 FETCH ROLE
+  // 👤 FETCH SELLER STATUS (FIXED)
   useEffect(() => {
     if (!user) {
-      setRole(null);
+      setIsSeller(false);
       setLoadingRole(false);
       return;
     }
@@ -45,9 +46,17 @@ export default function Navbar() {
 
         if (snap.exists()) {
           const data = snap.data();
-          setRole(data.role || null);
-        } else {
-          setRole(null);
+
+          // 🔥 AUTO MIGRATION (παλιό system)
+          if (data.role === "seller" && !data.isSeller) {
+            console.log("MIGRATING USER...");
+
+            await setDoc(ref, { isSeller: true }, { merge: true });
+
+            setIsSeller(true);
+          } else {
+            setIsSeller(data.isSeller === true);
+          }
         }
       } catch (error) {
         console.error("ROLE ERROR:", error);
@@ -106,7 +115,7 @@ export default function Navbar() {
       <button onClick={() => router.push("/")}>🏠</button>
 
       {/* ➕ ONLY SELLER */}
-      {!loadingRole && role === "seller" && (
+      {!loadingRole && isSeller && (
         <button onClick={() => router.push("/upload")}>
           ➕
         </button>
@@ -141,10 +150,12 @@ export default function Navbar() {
         )}
       </div>
 
-      {/* 👤 PROFILE */}
-      <button onClick={() => router.push("/profile")}>
-        👤
-      </button>
+      {/* 👤 PROFILE (μόνο αν logged in) */}
+      {user && (
+        <button onClick={() => router.push("/profile")}>
+          👤
+        </button>
+      )}
 
       {/* 🔐 LOGIN / LOGOUT */}
       {!user ? (
