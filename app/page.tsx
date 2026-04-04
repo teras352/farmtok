@@ -15,10 +15,11 @@ export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [isSeller, setIsSeller] = useState(false);
 
-  // 🔥 AUTH + ROLE CHECK
+  // 🔥 AUTH + SELLER CHECK (FIXED)
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
+      setIsSeller(false); // 🔥 reset κάθε φορά
 
       if (u) {
         try {
@@ -27,22 +28,38 @@ export default function Home() {
 
           if (userSnap.exists()) {
             const data = userSnap.data();
-            if (data.role === "seller") {
+
+            // 🔥 AUTO MIGRATION (παλιό role → νέο σύστημα)
+            if (data.role === "seller" && !data.isSeller) {
+              console.log("MIGRATING USER...");
+
+              await setDoc(
+                userRef,
+                {
+                  isSeller: true
+                },
+                { merge: true }
+              );
+
+              setIsSeller(true);
+              return;
+            }
+
+            // ✅ ΝΕΟ SYSTEM
+            if (data.isSeller === true) {
               setIsSeller(true);
             }
           }
         } catch (error) {
           console.error("ROLE ERROR:", error);
         }
-      } else {
-        setIsSeller(false);
       }
     });
 
     return () => unsubscribe();
   }, []);
 
-  // 🔥 ΓΙΝΕ SELLER
+  // 🔥 ΓΙΝΕ SELLER (FIXED)
   const becomeSeller = async () => {
     if (!user) {
       alert("Κάνε login πρώτα");
@@ -54,8 +71,7 @@ export default function Home() {
       await setDoc(
         doc(db, "users", user.uid),
         {
-          role: "seller",
-          email: user.email,
+          isSeller: true,
           updatedAt: new Date()
         },
         { merge: true }
@@ -94,14 +110,16 @@ export default function Home() {
   // 🔄 LOADING
   if (loading) {
     return (
-      <div style={{
-        height: "100vh",
-        background: "black",
-        color: "white",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center"
-      }}>
+      <div
+        style={{
+          height: "100vh",
+          background: "black",
+          color: "white",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
         Loading...
       </div>
     );
@@ -115,18 +133,17 @@ export default function Home() {
         scrollSnapType: "y mandatory",
         WebkitOverflowScrolling: "touch",
         scrollBehavior: "smooth",
-        background: "black"
+        background: "black",
       }}
     >
-
-      {/* 🔐 LOGIN BUTTON (TOP LEFT) */}
+      {/* 🔐 LOGIN BUTTON */}
       {!user && (
         <div
           style={{
             position: "fixed",
             top: 15,
             left: 15,
-            zIndex: 9999
+            zIndex: 9999,
           }}
         >
           <button
@@ -139,7 +156,7 @@ export default function Home() {
               borderRadius: 8,
               fontSize: 12,
               backdropFilter: "blur(5px)",
-              cursor: "pointer"
+              cursor: "pointer",
             }}
           >
             🔐 Είσοδος
@@ -160,7 +177,7 @@ export default function Home() {
           fontWeight: "bold",
           fontSize: 18,
           background: "rgba(0,0,0,0.3)",
-          backdropFilter: "blur(5px)"
+          backdropFilter: "blur(5px)",
         }}
       >
         FarmTok 🌱
@@ -182,7 +199,7 @@ export default function Home() {
             borderRadius: 8,
             fontSize: 12,
             fontWeight: "bold",
-            cursor: "pointer"
+            cursor: "pointer",
           }}
         >
           Ξεκίνα να πουλάς 🚀
