@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { collection, getDocs, doc, setDoc, getDoc } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  doc,
+  setDoc,
+  getDoc
+} from "firebase/firestore";
 import { db, auth } from "./lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import VideoCard from "./components/VideoCard";
@@ -15,51 +21,64 @@ export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [isSeller, setIsSeller] = useState(false);
 
-  // 🔥 AUTH + SELLER CHECK (FIXED)
+  // 🔥 AUTH + AUTO USER CREATE + ROLE SYSTEM
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
-      setIsSeller(false); // 🔥 reset κάθε φορά
+      setIsSeller(false);
 
-      if (u) {
-        try {
-          const userRef = doc(db, "users", u.uid);
-          const userSnap = await getDoc(userRef);
+      if (!u) return;
 
-          if (userSnap.exists()) {
-            const data = userSnap.data();
+      try {
+        const userRef = doc(db, "users", u.uid);
+        const userSnap = await getDoc(userRef);
 
-            // 🔥 AUTO MIGRATION (παλιό role → νέο σύστημα)
-            if (data.role === "seller" && !data.isSeller) {
-              console.log("MIGRATING USER...");
+        // 🆕 CREATE USER (ΑΝ ΔΕΝ ΥΠΑΡΧΕΙ)
+        if (!userSnap.exists()) {
+          console.log("CREATING USER...");
 
-              await setDoc(
-                userRef,
-                {
-                  isSeller: true
-                },
-                { merge: true }
-              );
+          await setDoc(userRef, {
+            email: u.email,
+            role: "buyer",
+            isSeller: false,
+            createdAt: new Date()
+          });
 
-              setIsSeller(true);
-              return;
-            }
-
-            // ✅ ΝΕΟ SYSTEM
-            if (data.isSeller === true) {
-              setIsSeller(true);
-            }
-          }
-        } catch (error) {
-          console.error("ROLE ERROR:", error);
+          return;
         }
+
+        const data = userSnap.data();
+
+        // 🔄 MIGRATION (παλιό σύστημα → νέο)
+        if (data.role === "seller" && !data.isSeller) {
+          console.log("MIGRATING USER...");
+
+          await setDoc(
+            userRef,
+            {
+              isSeller: true
+            },
+            { merge: true }
+          );
+
+          setIsSeller(true);
+          return;
+        }
+
+        // ✅ CHECK SELLER
+        if (data.isSeller === true || data.role === "seller") {
+          setIsSeller(true);
+        }
+
+      } catch (error) {
+        console.error("USER ERROR:", error);
       }
     });
 
     return () => unsubscribe();
   }, []);
 
-  // 🔥 ΓΙΝΕ SELLER (FIXED)
+  // 🔥 ΓΙΝΕ SELLER
   const becomeSeller = async () => {
     if (!user) {
       alert("Κάνε login πρώτα");
@@ -68,9 +87,12 @@ export default function Home() {
     }
 
     try {
+      const ref = doc(db, "users", user.uid);
+
       await setDoc(
-        doc(db, "users", user.uid),
+        ref,
         {
+          role: "seller",
           isSeller: true,
           updatedAt: new Date()
         },
@@ -78,7 +100,9 @@ export default function Home() {
       );
 
       setIsSeller(true);
+
       alert("Τώρα μπορείς να πουλάς 🚀");
+
     } catch (error) {
       console.error("SELLER ERROR:", error);
       alert("Σφάλμα");
