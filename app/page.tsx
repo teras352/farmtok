@@ -21,7 +21,7 @@ export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [isSeller, setIsSeller] = useState(false);
 
-  // 🔥 AUTH + AUTO USER CREATE + ROLE SYSTEM
+  // 🔥 AUTH + AUTO USER CREATE + ADMIN SYSTEM
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
@@ -33,26 +33,45 @@ export default function Home() {
         const userRef = doc(db, "users", u.uid);
         const userSnap = await getDoc(userRef);
 
-        // 🆕 CREATE USER (ΑΝ ΔΕΝ ΥΠΑΡΧΕΙ)
+        const isAdminEmail = u.email === "teras19862@hotmail.com";
+
+        // 🆕 CREATE USER
         if (!userSnap.exists()) {
           console.log("CREATING USER...");
 
           await setDoc(userRef, {
             email: u.email,
-            role: "buyer",
-            isSeller: false,
+            role: isAdminEmail ? "admin" : "buyer",
+            isSeller: isAdminEmail ? true : false,
             createdAt: new Date()
           });
+
+          if (isAdminEmail) setIsSeller(true);
 
           return;
         }
 
         const data = userSnap.data();
 
-        // 🔄 MIGRATION (παλιό σύστημα → νέο)
-        if (data.role === "seller" && !data.isSeller) {
-          console.log("MIGRATING USER...");
+        // 🔄 FORCE ADMIN (αν είσαι εσύ)
+        if (isAdminEmail && data.role !== "admin") {
+          console.log("UPGRADING TO ADMIN...");
 
+          await setDoc(
+            userRef,
+            {
+              role: "admin",
+              isSeller: true
+            },
+            { merge: true }
+          );
+
+          setIsSeller(true);
+          return;
+        }
+
+        // 🔄 MIGRATION
+        if (data.role === "seller" && !data.isSeller) {
           await setDoc(
             userRef,
             {
@@ -66,7 +85,7 @@ export default function Home() {
         }
 
         // ✅ CHECK SELLER
-        if (data.isSeller === true || data.role === "seller") {
+        if (data.isSeller === true || data.role === "seller" || data.role === "admin") {
           setIsSeller(true);
         }
 
