@@ -13,7 +13,6 @@ export default function Upload() {
   const [video, setVideo] = useState<File | null>(null);
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
-  const [phone, setPhone] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [allowed, setAllowed] = useState(false);
@@ -34,17 +33,13 @@ export default function Upload() {
         if (snap.exists()) {
           const data = snap.data();
 
-          // 🔥 AUTO FIX (παλιό role → νέο σύστημα)
+          // 🔥 migrate παλιό σύστημα
           if (data.role === "seller" && !data.isSeller) {
-            console.log("MIGRATING USER...");
-
             await setDoc(refUser, { isSeller: true }, { merge: true });
-
             setAllowed(true);
             return;
           }
 
-          // ✅ ΝΕΟ SYSTEM
           if (data.isSeller === true) {
             setAllowed(true);
           } else {
@@ -52,11 +47,10 @@ export default function Upload() {
             router.push("/");
           }
         } else {
-          alert("User δεν βρέθηκε");
           router.push("/");
         }
       } catch (error) {
-        console.error("CHECK ERROR:", error);
+        console.error(error);
         router.push("/");
       }
     });
@@ -66,7 +60,7 @@ export default function Upload() {
 
   // 🚀 UPLOAD
   const handleUpload = async () => {
-    if (!video || !name || !price || !phone) {
+    if (!video || !name || !price) {
       return alert("Συμπλήρωσε όλα τα πεδία");
     }
 
@@ -77,39 +71,46 @@ export default function Upload() {
     try {
       setLoading(true);
 
+      // 📦 upload video
       const fileName = `${Date.now()}-${video.name}`;
       const videoRef = ref(storage, `videos/${fileName}`);
 
       await uploadBytes(videoRef, video);
       const url = await getDownloadURL(videoRef);
 
+      // 👤 πάρε seller info
+      const userRef = doc(db, "users", auth.currentUser.uid);
+      const userSnap = await getDoc(userRef);
+      const userData = userSnap.data();
+
+      // 🧾 save product
       await addDoc(collection(db, "products"), {
         name,
         price: Number(price),
-        phone,
         video: url,
         userId: auth.currentUser.uid,
-        status: "pending", // 🔥 αν βάλεις moderation
+        sellerName: userData?.name || "Παραγωγός",
+        status: "pending",
         createdAt: new Date()
       });
 
       alert("Ανέβηκε το προϊόν 🚀");
 
+      // reset
       setVideo(null);
       setName("");
       setPrice("");
-      setPhone("");
 
       router.push("/");
     } catch (error) {
       console.error("UPLOAD ERROR:", error);
-      alert("Σφάλμα - δες console");
+      alert("Σφάλμα");
     } finally {
       setLoading(false);
     }
   };
 
-  // ⏳ LOADING
+  // ⏳ loading screen
   if (!allowed) {
     return (
       <div
@@ -164,15 +165,6 @@ export default function Upload() {
         placeholder="Τιμή (€)"
         value={price}
         onChange={(e) => setPrice(e.target.value)}
-      />
-
-      <br /><br />
-
-      <input
-        type="text"
-        placeholder="Τηλέφωνο (π.χ. 3069...)"
-        value={phone}
-        onChange={(e) => setPhone(e.target.value)}
       />
 
       <br /><br />
