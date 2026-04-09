@@ -8,7 +8,8 @@ import {
   where,
   onSnapshot,
   doc,
-  updateDoc
+  updateDoc,
+  addDoc
 } from "firebase/firestore";
 
 export default function Orders() {
@@ -45,10 +46,9 @@ export default function Orders() {
     return () => unsubscribe();
   }, [user]);
 
-  // 🔥 UPDATE STATUS (SAFE)
+  // 🔥 UPDATE STATUS + NOTIFICATION
   const updateStatus = async (id: string, newStatus: string, order: any) => {
     try {
-      // 🔒 security check
       if (!user || order.sellerId !== user.uid) return;
 
       const ref = doc(db, "orders", id);
@@ -57,8 +57,15 @@ export default function Orders() {
         status: newStatus
       });
 
-      // ❌ ΔΕΝ βάζουμε notification εδώ
-      // 👉 το κάνει ήδη το Firebase function
+      // 🔔 CREATE NOTIFICATION
+      if (newStatus === "accepted") {
+        await addDoc(collection(db, "notifications"), {
+          userId: order.buyerId,
+          message: `Η παραγγελία σου για "${order.productName}" έγινε αποδεκτή ✅`,
+          createdAt: new Date(),
+          read: false
+        });
+      }
 
     } catch (error) {
       console.error("UPDATE ERROR:", error);
@@ -94,7 +101,6 @@ export default function Orders() {
           <p><strong>Προϊόν:</strong> {order.productName}</p>
           <p><strong>Τιμή:</strong> {order.price}€</p>
 
-          {/* 🔥 STATUS */}
           <p>
             <strong>Status:</strong>
             {order.status === "pending" && " ⏳ Εκκρεμεί"}
@@ -103,7 +109,6 @@ export default function Orders() {
             {order.status === "rejected" && " ❌ Απορρίφθηκε"}
           </p>
 
-          {/* 🔥 ACTIONS */}
           {order.status === "pending" && (
             <div style={{ display: "flex", gap: 10 }}>
               <button
