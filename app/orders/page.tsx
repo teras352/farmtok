@@ -4,19 +4,18 @@ import { useEffect, useState } from "react";
 import { db, auth } from "../lib/firebase";
 import {
   collection,
-  getDocs,
   query,
   where,
+  onSnapshot,
   doc,
-  updateDoc,
-  addDoc
+  updateDoc
 } from "firebase/firestore";
 
 export default function Orders() {
   const [orders, setOrders] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
 
-  // 🔥 current user
+  // 🔐 current user
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((u) => {
       setUser(u);
@@ -25,67 +24,57 @@ export default function Orders() {
     return () => unsubscribe();
   }, []);
 
-  // 🔥 fetch seller orders
+  // 🔥 REAL-TIME orders
   useEffect(() => {
     if (!user) return;
 
-    const fetchOrders = async () => {
-      try {
-        const q = query(
-          collection(db, "orders"),
-          where("sellerId", "==", user.uid)
-        );
+    const q = query(
+      collection(db, "orders"),
+      where("sellerId", "==", user.uid)
+    );
 
-        const snapshot = await getDocs(q);
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
 
-        const data = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+      setOrders(data);
+    });
 
-        setOrders(data);
-      } catch (error) {
-        console.error("FETCH ERROR:", error);
-      }
-    };
-
-    fetchOrders();
+    return () => unsubscribe();
   }, [user]);
 
-  // 🔥 update status + notifications
+  // 🔥 UPDATE STATUS (SAFE)
   const updateStatus = async (id: string, newStatus: string, order: any) => {
     try {
+      // 🔒 security check
+      if (!user || order.sellerId !== user.uid) return;
+
       const ref = doc(db, "orders", id);
 
       await updateDoc(ref, {
         status: newStatus
       });
 
-      // 🔔 notification όταν γίνει accept
-      if (newStatus === "accepted") {
-        await addDoc(collection(db, "notifications"), {
-          userId: order.buyerId,
-          message: `Η παραγγελία σου για "${order.productName}" έγινε αποδεκτή ✅`,
-          createdAt: new Date(),
-          read: false
-        });
-      }
-
-      // 🔥 update UI instantly
-      setOrders(prev =>
-        prev.map(o =>
-          o.id === id ? { ...o, status: newStatus } : o
-        )
-      );
+      // ❌ ΔΕΝ βάζουμε notification εδώ
+      // 👉 το κάνει ήδη το Firebase function
 
     } catch (error) {
-      console.error(error);
+      console.error("UPDATE ERROR:", error);
       alert("Σφάλμα");
     }
   };
 
   return (
-    <div style={{ padding: 20, color: "white" }}>
+    <div
+      style={{
+        padding: 20,
+        color: "white",
+        background: "black",
+        minHeight: "100vh"
+      }}
+    >
       <h1>📦 Οι παραγγελίες μου</h1>
 
       {orders.length === 0 && (
@@ -124,10 +113,11 @@ export default function Orders() {
                   border: "none",
                   padding: "8px 12px",
                   borderRadius: 8,
-                  color: "white"
+                  color: "white",
+                  cursor: "pointer"
                 }}
               >
-                Αποδοχή
+                ✅ Αποδοχή
               </button>
 
               <button
@@ -137,10 +127,11 @@ export default function Orders() {
                   border: "none",
                   padding: "8px 12px",
                   borderRadius: 8,
-                  color: "white"
+                  color: "white",
+                  cursor: "pointer"
                 }}
               >
-                Απόρριψη
+                ❌ Απόρριψη
               </button>
             </div>
           )}
@@ -154,7 +145,8 @@ export default function Orders() {
                 border: "none",
                 padding: "8px 12px",
                 borderRadius: 8,
-                color: "white"
+                color: "white",
+                cursor: "pointer"
               }}
             >
               💰 Πληρωμή ολοκληρώθηκε
