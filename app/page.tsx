@@ -21,7 +21,7 @@ export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [isSeller, setIsSeller] = useState(false);
 
-  // 🔥 AUTH + AUTO USER CREATE + ADMIN SYSTEM
+  // 🔥 AUTH + USER SYSTEM (CLEAN)
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
@@ -31,32 +31,27 @@ export default function Home() {
 
       try {
         const userRef = doc(db, "users", u.uid);
-        const userSnap = await getDoc(userRef);
+        const snap = await getDoc(userRef);
 
-        const isAdminEmail = u.email === "teras19862@hotmail.com";
+        const isAdmin = u.email === "teras19862@hotmail.com";
 
-        // 🆕 CREATE USER
-        if (!userSnap.exists()) {
-          console.log("CREATING USER...");
-
+        // 🆕 CREATE USER IF NOT EXISTS
+        if (!snap.exists()) {
           await setDoc(userRef, {
             email: u.email,
-            role: isAdminEmail ? "admin" : "buyer",
-            isSeller: isAdminEmail ? true : false,
+            role: isAdmin ? "admin" : "buyer",
+            isSeller: isAdmin,
             createdAt: new Date()
           });
 
-          if (isAdminEmail) setIsSeller(true);
-
+          if (isAdmin) setIsSeller(true);
           return;
         }
 
-        const data = userSnap.data();
+        const data = snap.data();
 
-        // 🔄 FORCE ADMIN (αν είσαι εσύ)
-        if (isAdminEmail && data.role !== "admin") {
-          console.log("UPGRADING TO ADMIN...");
-
+        // 🔄 FORCE ADMIN (για σένα)
+        if (isAdmin && data.role !== "admin") {
           await setDoc(
             userRef,
             {
@@ -70,22 +65,21 @@ export default function Home() {
           return;
         }
 
-        // 🔄 MIGRATION
+        // 🔄 FIX OLD USERS
         if (data.role === "seller" && !data.isSeller) {
           await setDoc(
             userRef,
-            {
-              isSeller: true
-            },
+            { isSeller: true },
             { merge: true }
           );
-
-          setIsSeller(true);
-          return;
         }
 
-        // ✅ CHECK SELLER
-        if (data.isSeller === true || data.role === "seller" || data.role === "admin") {
+        // ✅ FINAL CHECK
+        if (
+          data.isSeller === true ||
+          data.role === "seller" ||
+          data.role === "admin"
+        ) {
           setIsSeller(true);
         }
 
@@ -100,16 +94,13 @@ export default function Home() {
   // 🔥 ΓΙΝΕ SELLER
   const becomeSeller = async () => {
     if (!user) {
-      alert("Κάνε login πρώτα");
       router.push("/login");
       return;
     }
 
     try {
-      const ref = doc(db, "users", user.uid);
-
       await setDoc(
-        ref,
+        doc(db, "users", user.uid),
         {
           role: "seller",
           isSeller: true,
@@ -120,11 +111,8 @@ export default function Home() {
 
       setIsSeller(true);
 
-      alert("Τώρα μπορείς να πουλάς 🚀");
-
     } catch (error) {
       console.error("SELLER ERROR:", error);
-      alert("Σφάλμα");
     }
   };
 
@@ -132,16 +120,16 @@ export default function Home() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const querySnapshot = await getDocs(collection(db, "products"));
+        const snapshot = await getDocs(collection(db, "products"));
 
-        const data = querySnapshot.docs.map((doc) => ({
+        const data = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
 
         setVideos(data);
       } catch (error) {
-        console.error("Fetch error:", error);
+        console.error("FETCH ERROR:", error);
       } finally {
         setLoading(false);
       }
@@ -153,16 +141,14 @@ export default function Home() {
   // 🔄 LOADING
   if (loading) {
     return (
-      <div
-        style={{
-          height: "100vh",
-          background: "black",
-          color: "white",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
+      <div style={{
+        height: "100vh",
+        background: "black",
+        color: "white",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center"
+      }}>
         Loading...
       </div>
     );
@@ -176,19 +162,17 @@ export default function Home() {
         scrollSnapType: "y mandatory",
         WebkitOverflowScrolling: "touch",
         scrollBehavior: "smooth",
-        background: "black",
+        background: "black"
       }}
     >
-      {/* 🔐 LOGIN BUTTON */}
+      {/* 🔐 LOGIN */}
       {!user && (
-        <div
-          style={{
-            position: "fixed",
-            top: 15,
-            left: 15,
-            zIndex: 9999,
-          }}
-        >
+        <div style={{
+          position: "fixed",
+          top: 15,
+          left: 15,
+          zIndex: 9999
+        }}>
           <button
             onClick={() => router.push("/login")}
             style={{
@@ -198,8 +182,7 @@ export default function Home() {
               padding: "6px 12px",
               borderRadius: 8,
               fontSize: 12,
-              backdropFilter: "blur(5px)",
-              cursor: "pointer",
+              cursor: "pointer"
             }}
           >
             🔐 Είσοδος
@@ -207,26 +190,23 @@ export default function Home() {
         </div>
       )}
 
-      {/* 🔝 TOP BAR */}
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          width: "100%",
-          textAlign: "center",
-          color: "white",
-          zIndex: 10,
-          padding: 12,
-          fontWeight: "bold",
-          fontSize: 18,
-          background: "rgba(0,0,0,0.3)",
-          backdropFilter: "blur(5px)",
-        }}
-      >
+      {/* 🔝 TITLE */}
+      <div style={{
+        position: "fixed",
+        top: 0,
+        width: "100%",
+        textAlign: "center",
+        color: "white",
+        zIndex: 10,
+        padding: 12,
+        fontWeight: "bold",
+        fontSize: 18,
+        background: "rgba(0,0,0,0.3)"
+      }}>
         FarmTok 🌱
       </div>
 
-      {/* 🧑‍🌾 SELLER BUTTON */}
+      {/* 🧑‍🌾 SELL BUTTON */}
       {user && !isSeller && (
         <button
           onClick={becomeSeller}
@@ -242,7 +222,7 @@ export default function Home() {
             borderRadius: 8,
             fontSize: 12,
             fontWeight: "bold",
-            cursor: "pointer",
+            cursor: "pointer"
           }}
         >
           Ξεκίνα να πουλάς 🚀

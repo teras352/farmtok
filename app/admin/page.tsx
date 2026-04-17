@@ -17,7 +17,7 @@ export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // 🔐 CHECK USER + ADMIN ROLE
+  // 🔐 AUTH + ADMIN CHECK
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
@@ -37,7 +37,7 @@ export default function AdminPage() {
           setIsAdmin(false);
         }
       } catch (error) {
-        console.error("ADMIN CHECK ERROR:", error);
+        console.error("ADMIN ERROR:", error);
       } finally {
         setLoading(false);
       }
@@ -46,7 +46,7 @@ export default function AdminPage() {
     return () => unsubscribe();
   }, []);
 
-  // 🔥 REAL-TIME ALL ORDERS
+  // 🔥 REAL-TIME ORDERS
   useEffect(() => {
     if (!isAdmin) return;
 
@@ -62,13 +62,31 @@ export default function AdminPage() {
     return () => unsubscribe();
   }, [isAdmin]);
 
-  // 🔥 UPDATE STATUS (ADMIN ONLY)
-  const updateStatus = async (id: string, status: string) => {
+  // 🔥 FLOW RULES (same as Firestore rules)
+  const allowedTransitions: any = {
+    pending: ["accepted"],
+    accepted: ["paid_to_platform"],
+    paid_to_platform: ["shipped"],
+    shipped: ["completed"],
+    completed: []
+  };
+
+  const canUpdate = (current: string, next: string) => {
+    return allowedTransitions[current]?.includes(next);
+  };
+
+  // 🔥 UPDATE STATUS
+  const updateStatus = async (order: any, newStatus: string) => {
     try {
-      const ref = doc(db, "orders", id);
+      if (!canUpdate(order.status, newStatus)) {
+        alert("Μη έγκυρη μετάβαση!");
+        return;
+      }
+
+      const ref = doc(db, "orders", order.id);
 
       await updateDoc(ref, {
-        status,
+        status: newStatus
       });
 
     } catch (error) {
@@ -95,20 +113,12 @@ export default function AdminPage() {
 
   // ❌ NOT LOGGED IN
   if (!user) {
-    return (
-      <div style={{ color: "white", padding: 20 }}>
-        Κάνε login πρώτα
-      </div>
-    );
+    return <div style={{ color: "white", padding: 20 }}>Κάνε login</div>;
   }
 
   // ❌ NOT ADMIN
   if (!isAdmin) {
-    return (
-      <div style={{ color: "white", padding: 20 }}>
-        Δεν έχεις πρόσβαση
-      </div>
-    );
+    return <div style={{ color: "white", padding: 20 }}>Δεν έχεις πρόσβαση</div>;
   }
 
   // ✅ ADMIN PANEL
@@ -144,28 +154,33 @@ export default function AdminPage() {
             <strong>Status:</strong> {order.status}
           </p>
 
-          {/* 🔥 ADMIN ACTIONS */}
+          {/* 🔥 BUTTONS BASED ON STATUS */}
           <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-            <button
-              onClick={() => updateStatus(order.id, "paid_to_platform")}
-              style={{ padding: "6px 10px", cursor: "pointer" }}
-            >
-              💳 Πληρώθηκε
-            </button>
 
-            <button
-              onClick={() => updateStatus(order.id, "shipped")}
-              style={{ padding: "6px 10px", cursor: "pointer" }}
-            >
-              🚚 Στάλθηκε
-            </button>
+            {order.status === "pending" && (
+              <button onClick={() => updateStatus(order, "accepted")}>
+                ✅ Αποδοχή
+              </button>
+            )}
 
-            <button
-              onClick={() => updateStatus(order.id, "completed")}
-              style={{ padding: "6px 10px", cursor: "pointer" }}
-            >
-              ✅ Ολοκληρώθηκε
-            </button>
+            {order.status === "accepted" && (
+              <button onClick={() => updateStatus(order, "paid_to_platform")}>
+                💳 Πληρώθηκε
+              </button>
+            )}
+
+            {order.status === "paid_to_platform" && (
+              <button onClick={() => updateStatus(order, "shipped")}>
+                🚚 Στάλθηκε
+              </button>
+            )}
+
+            {order.status === "shipped" && (
+              <button onClick={() => updateStatus(order, "completed")}>
+                ✅ Ολοκληρώθηκε
+              </button>
+            )}
+
           </div>
         </div>
       ))}
