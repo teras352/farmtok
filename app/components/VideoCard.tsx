@@ -28,7 +28,7 @@ export default function VideoCard({ video, product }: Props) {
     setLikes(liked ? likes - 1 : likes + 1);
   };
 
-  // 🎥 AUTO PLAY / PAUSE (TikTok style)
+  // 🎥 AUTO PLAY / PAUSE
   useEffect(() => {
     const videoEl = videoRef.current;
     if (!videoEl) return;
@@ -51,10 +51,57 @@ export default function VideoCard({ video, product }: Props) {
     };
   }, []);
 
+  // 🛒 BUY FUNCTION (FIXED)
+  const handleBuy = async () => {
+    if (!auth.currentUser) {
+      alert("Κάνε login πρώτα");
+      return;
+    }
+
+    // ❗ CRITICAL CHECK
+    if (!product.userId) {
+      console.error("❌ PRODUCT WITHOUT SELLER:", product);
+      alert("Σφάλμα προϊόντος (λείπει seller)");
+      return;
+    }
+
+    if (!product.id) {
+      alert("Σφάλμα προϊόντος (λείπει id)");
+      return;
+    }
+
+    if (product.userId === auth.currentUser.uid) {
+      alert("Δεν μπορείς να αγοράσεις το δικό σου προϊόν");
+      return;
+    }
+
+    try {
+      const orderData = {
+        productId: product.id,
+        productName: product.name,
+        price: product.price,
+        buyerId: auth.currentUser.uid,
+        sellerId: product.userId, // 🔥 ΠΟΤΕ empty
+        status: "pending",
+        createdAt: new Date()
+      };
+
+      console.log("ORDER DATA:", orderData);
+
+      await addDoc(collection(db, "orders"), orderData);
+
+      alert("Η παραγγελία καταχωρήθηκε!");
+
+    } catch (error) {
+      console.error("ORDER ERROR:", error);
+      alert("Σφάλμα");
+    }
+  };
+
   return (
     <div
       style={{
-        height: "100dvh", // 🔥 FIX MOBILE
+        height: "100dvh",
         position: "relative",
         overflow: "hidden",
         background: "black",
@@ -73,7 +120,7 @@ export default function VideoCard({ video, product }: Props) {
           width: "100%",
           height: "100%",
           objectFit: "cover",
-          pointerEvents: "none" // 🔥 important για scroll
+          pointerEvents: "none"
         }}
       />
 
@@ -112,35 +159,7 @@ export default function VideoCard({ video, product }: Props) {
         </p>
 
         <button
-          onClick={async () => {
-            if (!auth.currentUser) {
-              alert("Κάνε login πρώτα");
-              return;
-            }
-
-            // 🚫 μην αγοράζεις δικό σου προϊόν
-            if (product.userId === auth.currentUser.uid) {
-              alert("Δεν μπορείς να αγοράσεις το δικό σου προϊόν");
-              return;
-            }
-
-            try {
-              await addDoc(collection(db, "orders"), {
-                productId: product.id || "",
-                productName: product.name,
-                price: product.price,
-                buyerId: auth.currentUser.uid,
-                sellerId: product.userId || "",
-                status: "pending",
-                createdAt: new Date()
-              });
-
-              alert("Η παραγγελία καταχωρήθηκε!");
-            } catch (error) {
-              console.error(error);
-              alert("Σφάλμα");
-            }
-          }}
+          onClick={handleBuy}
           style={{
             marginTop: 6,
             background: "#22c55e",
