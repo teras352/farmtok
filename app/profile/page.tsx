@@ -2,10 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { db, auth } from "../lib/firebase";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  collection,
+  query,
+  where,
+  onSnapshot
+} from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 
 export default function Profile() {
   const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState<any[]>([]);
+
   const [form, setForm] = useState({
     name: "",
     bio: "",
@@ -13,47 +25,99 @@ export default function Profile() {
     photo: ""
   });
 
-  // 🔥 load user
+  // 🔐 AUTH (σωστό)
   useEffect(() => {
-    const u = auth.currentUser;
-    if (!u) return;
-
-    setUser(u);
-
-    const fetchData = async () => {
-      const ref = doc(db, "users", u.uid);
-      const snap = await getDoc(ref);
-
-      if (snap.exists()) {
-        setForm({
-          name: snap.data().name || "",
-          bio: snap.data().bio || "",
-          location: snap.data().location || "",
-          photo: snap.data().photo || ""
-        });
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      if (!u) {
+        setLoading(false);
+        return;
       }
-    };
 
-    fetchData();
+      setUser(u);
+
+      try {
+        const ref = doc(db, "users", u.uid);
+        const snap = await getDoc(ref);
+
+        if (snap.exists()) {
+          const data = snap.data();
+
+          setForm({
+            name: data.name || "",
+            bio: data.bio || "",
+            location: data.location || "",
+            photo: data.photo || ""
+          });
+        }
+      } catch (error) {
+        console.error("PROFILE LOAD ERROR:", error);
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  // 🔥 save profile
+  // 📦 ORDERS (buyer profile)
+  useEffect(() => {
+    if (!user) return;
+
+    const q = query(
+      collection(db, "orders"),
+      where("buyerId", "==", user.uid)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      setOrders(data);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // 💾 SAVE
   const saveProfile = async () => {
     if (!user) return;
 
     try {
       await updateDoc(doc(db, "users", user.uid), form);
       alert("Αποθηκεύτηκε!");
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("Σφάλμα");
+
+      if (error.code === "permission-denied") {
+        alert("Δεν έχεις δικαίωμα");
+      } else {
+        alert("Σφάλμα");
+      }
     }
   };
 
-  return (
-    <div style={{ padding: 20, color: "white" }}>
-      <h1>👨‍🌾 Προφίλ παραγωγού</h1>
+  // ⏳ LOADING
+  if (loading) {
+    return <div style={{ color: "white", padding: 20 }}>Loading...</div>;
+  }
 
+  // ❌ NO USER
+  if (!user) {
+    return <div style={{ color: "white", padding: 20 }}>Κάνε login</div>;
+  }
+
+  return (
+    <div style={{
+      padding: 20,
+      color: "white",
+      background: "black",
+      minHeight: "100vh"
+    }}>
+      <h1>👤 Το προφίλ μου</h1>
+
+      {/* 🧾 FORM */}
       <input
         placeholder="Όνομα"
         value={form.name}
@@ -89,6 +153,27 @@ export default function Profile() {
       <button onClick={saveProfile}>
         Αποθήκευση
       </button>
+
+      {/* 📦 ORDERS */}
+      <h2 style={{ marginTop: 30 }}>📦 Οι αγορές μου</h2>
+
+      {orders.length === 0 && <p>Δεν υπάρχουν αγορές</p>}
+
+      {orders.map(order => (
+        <div
+          key={order.id}
+          style={{
+            border: "1px solid #444",
+            marginBottom: 10,
+            padding: 10,
+            borderRadius: 8
+          }}
+        >
+          <p><strong>{order.productName}</strong></p>
+          <p>{order.price}€</p>
+          <p>Status: {order.status}</p>
+        </div>
+      ))}
     </div>
   );
 }
